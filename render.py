@@ -349,7 +349,7 @@ def draw_masthead(d):
 
 def draw_dateline(d):
     text = "Saturday 21 November 2026"
-    size = 62
+    size = 58
     f = font(SERIF_B, size)
     while f.getlength(text) > CONTENT and size > 30:
         size -= 1
@@ -358,8 +358,9 @@ def draw_dateline(d):
     deck = ("COP31 runs into overtime \u00b7 Iran strikes Bahrain \u00b7 "
             "Mexico seizes \u2018El Chapo Isidro\u2019 as 11 die in Sinaloa")
     fd = font(SANS, 12)
-    block(d, MARGIN, 36 + size + 4, deck, fd, MUTED, CONTENT, 15, 1)
-    d.line((MARGIN, 128, W - MARGIN, 128), fill=RULE, width=1)
+    deck_y = d.textbbox((MARGIN, 36), text, font=f)[3] + 8
+    block(d, MARGIN, deck_y, deck, fd, MUTED, CONTENT, 15, 1)
+    d.line((MARGIN, 131, W - MARGIN, 131), fill=RULE, width=1)
 
 
 CARD_TOP = 138

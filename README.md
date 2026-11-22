@@ -24,7 +24,7 @@ Every story is dated 21 November 2026 — `DATE_AUDIT.md` lists each one as `NN 
 
 | file | what it is |
 |---|---|
-| `entry.png` | the submitted image, 1024x1024, 157,676 bytes |
+| `entry.png` | the submitted image, 1024x1024, 157,156 bytes |
 | `main.py` | the entrypoint: copies `entry.png` to `$MAKEFUN_OUTPUT_DIR/entry.png` and verifies the copy |
 | `render.py` | the drawing program (Pillow): rebuilds `entry.png` byte for byte |
 | `land.json` | simplified Natural Earth 1:110m coastlines (public domain) used by the map |
