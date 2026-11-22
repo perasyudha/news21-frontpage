@@ -133,22 +133,22 @@ CARDS = [
 ]
 
 BRIEFS = [
-    (12, "EUROPE", "Cargo ship hit by drones on fire off Finland"),
-    (13, "MIDDLE EAST", "Qatari team in Tehran; Iran sees a chance"),
-    (14, "MIDDLE EAST", "US denies Iran claim a missile hit an F-16"),
-    (15, "MIDDLE EAST", "Basra power station fire kills 4, hurts 35"),
-    (16, "AFRICA", "Curfew in Sennar as Blue Nile fighting spreads"),
-    (17, "AFRICA", "Mali says four killed; air raids near Kidal"),
+    (12, "EUROPE", "Cargo ship hit by drones off Finland"),
+    (13, "MIDDLE EAST", "Qatar team in Tehran; Iran sees a chance"),
+    (14, "MIDDLE EAST", "US denies Iran claim of F-16 hit"),
+    (15, "MIDDLE EAST", "Basra power plant fire: 4 dead, 35 hurt"),
+    (16, "AFRICA", "Sennar curfew as Blue Nile clashes spread"),
+    (17, "AFRICA", "Mali: four killed, air raids near Kidal"),
     (18, "AMERICAS", "Three Salvadoran soldiers die in Haiti"),
-    (19, "AMERICAS", "Supercell storm batters southern Brazil town"),
+    (19, "AMERICAS", "Supercell storm batters southern Brazil"),
     (20, "AMERICAS", "FBI probes hack of its crime database"),
     (21, "AMERICAS", "Second judge blocks Trump\u2019s memorial arch"),
-    (22, "AMERICAS", "Agents arrest travellers at Seattle airport"),
-    (23, "AMERICAS", "Mamdani plan puts Rikers closure at 2032"),
-    (24, "AMERICAS", "Pentagon curbs on Canada target think tanks"),
-    (25, "EUROPE", "Denmark urges EU travel curbs on Russians"),
-    (26, "EUROPE", "Zagreb rally over psychiatric hospital death"),
-    (27, "ASIA", "Kim tours factories after Trump leaves Asia"),
+    (22, "AMERICAS", "Agents arrest travellers in Seattle"),
+    (23, "AMERICAS", "Mamdani plan: Rikers closure by 2032"),
+    (24, "AMERICAS", "Pentagon curbs Canada ties to think tanks"),
+    (25, "EUROPE", "Denmark urges EU curbs on Russians"),
+    (26, "EUROPE", "Zagreb rally over hospital death"),
+    (27, "ASIA", "Kim tours factories after Trump snub"),
     (28, "ASIA", "Trump basks in summit pomp as Xi gains"),
     (29, "ASIA", "Russia warns on ISIS-K, offers mediation"),
     (30, "GLOBAL", "UN sets AI-safety summit in Barbados"),
@@ -156,7 +156,7 @@ BRIEFS = [
     (32, "OCEANIA", "Magnitude 6.8 quake shakes Banda Sea"),
     (33, "ASIA", "Indonesia ammonia project moves ahead"),
     (34, "AMERICAS", "Trump defends calling Putin a friend"),
-    (35, "ASIA", "Protests at Meta offices in three India cities"),
+    (35, "ASIA", "Meta protests in three Indian cities"),
 ]
 
 TOTAL = len(CARDS) + len(BRIEFS)
@@ -467,23 +467,27 @@ def draw_briefs(d):
     f = font(SANS_B, 11)
     tracked(d, BRIEF_X, BAND_Y, "ALSO ON 21 NOVEMBER", f, INK, 1.4)
     d.line((BRIEF_X, BAND_Y + 16, W - MARGIN, BAND_Y + 16), fill=RULE, width=1)
-    cols = 3
-    gutter = 12
-    col_w = (BRIEF_W - gutter * (cols - 1)) // cols
+    cols = 2
+    gutter = 14
+    col_w = (BRIEF_W - gutter) // cols
     per_col = (len(BRIEFS) + cols - 1) // cols
     top = BAND_Y + 24
-    bottom = 984
-    row_h = (bottom - top) // per_col
+    row_h = (984 - top) // per_col
+    fbold = font(SANS_B, 11)
+    freg = font(SANS, 11)
     for idx, (n, region, text) in enumerate(BRIEFS):
         col, row = divmod(idx, per_col)
         x = BRIEF_X + col * (col_w + gutter)
         y = top + row * row_h
         accent = REGIONS[region]
-        fn = font(SANS_B, 11)
-        d.text((x, y), str(n), font=fn, fill=accent)
-        fw = fn.getlength(str(n))
-        d.rectangle((x + fw + 4, y + 4, x + fw + 5, y + 10), fill=RULE)
-        block(d, x + fw + 9, y, text, font(SANS, 11), INK, col_w - fw - 9, 12, 2)
+        d.text((x, y), str(n), font=fbold, fill=accent)
+        nx = x + fbold.getlength(str(n)) + 7
+        lead, _, rest = text.partition(" ")
+        width = fbold.getlength(lead) + freg.getlength(" " + rest)
+        if nx + width > x + col_w:
+            raise ValueError(f"brief {n} does not fit one line: {text!r} ({width:.0f}px)")
+        d.text((nx, y), lead, font=fbold, fill=INK)
+        d.text((nx + fbold.getlength(lead + " "), y), rest, font=freg, fill=INK)
 
 
 def draw_footer(d):
