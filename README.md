@@ -4,8 +4,8 @@ Entry for [make.fun's news-image-20261121 bounty](https://make.fun/c/news-image-
 sum up Saturday 21 November 2026's world news in one 1024x1024 image.
 
 [![bounty](https://make.fun/badge/news-image-20261121.svg)](https://make.fun/c/news-image-20261121)
-![rank](https://make.fun/badge/perasyudha/news21-frontpage/rank.svg)
-![reward](https://make.fun/badge/perasyudha/news21-frontpage/reward.svg)
+[![rank](https://make.fun/badge/news-image-20261121/perasyudha/news21-frontpage/rank.svg)](https://make.fun/bounty/news-image-20261121/leaderboard)
+[![reward](https://make.fun/badge/news-image-20261121/perasyudha/news21-frontpage/reward.svg)](https://make.fun/bounty/news-image-20261121)
 
 ## What the image is
 
