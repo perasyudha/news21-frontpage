@@ -13,18 +13,18 @@ A newspaper front page for one day:
 
 - masthead, giant serif dateline `Saturday 21 November 2026`, and a deck naming the day's three biggest stories;
 - **11 illustrated cards** (grid 3+4+4, the COP31 card spanning two columns as the lead), each with its own flat drawing, a numbered badge, a `REGION · FIELD` kicker, a serif headline and a sans deck carrying the key figure;
-- a **`WHERE IT HAPPENED` map** with a seven-swatch region legend and markers 1-11 keyed to the cards, captioned to say briefs are not plotted;
+- a **`WHERE IT HAPPENED` map** with a six-swatch region legend and markers keyed to the cards (every card except the two global ones), captioned to say global stories are not plotted and briefs are not plotted;
 - an **`ALSO ON 21 NOVEMBER`** briefs rail with the running index 12-35;
 - a footer with the attribution rule, the agencies, and "Original drawings".
 
-**35 stories, 7 regions, 5 continents** (Americas 12, Europe 6, Middle East 5, Africa 3, Asia 5, Oceania 1, Global 3).
+**35 stories, 6 regions, 5 continents** (Americas 12, Europe 6, Middle East 5, Africa 3, Asia 6, Global 3 — the Banda Sea quake is coded Asia, so no Oceania entry).
 Every story is dated 21 November 2026 — `DATE_AUDIT.md` lists each one as `NN | place | 2026-11-21 | source`.
 
 ## Files
 
 | file | what it is |
 |---|---|
-| `entry.png` | the submitted image, 1024x1024, 157,368 bytes |
+| `entry.png` | the submitted image, 1024x1024, 159,042 bytes |
 | `main.py` | the entrypoint: copies `entry.png` to `$MAKEFUN_OUTPUT_DIR/entry.png` and verifies the copy |
 | `render.py` | the drawing program (Pillow): rebuilds `entry.png` byte for byte |
 | `land.json` | simplified Natural Earth 1:110m coastlines (public domain) used by the map |

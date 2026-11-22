@@ -18,6 +18,9 @@ from PIL import Image, ImageDraw, ImageFont
 W = H = 1024
 MARGIN = 24
 CONTENT = W - 2 * MARGIN  # 976
+CARD_PAD = 13  # text inset from every card edge, never below 12
+BRIEF_PAD = 12  # text inset from every briefs column edge
+MAP_DOT_R = 11  # marker radius; the numeral inside is 13px type (9px cap height)
 
 INK = (20, 22, 26)
 PAPER = (246, 242, 233)
@@ -70,6 +73,9 @@ def block(draw, x, y, text, f, fill, max_w, line_h, max_lines, spacing=0):
     lines = wrap(text, f, max_w)
     if len(lines) > max_lines:
         raise ValueError(f"copy overflows {max_lines} lines at {max_w}px: {text!r} -> {lines}")
+    for line in lines:
+        if f.getlength(line) > max_w:
+            raise ValueError(f"single word wider than {max_w}px: {line!r}")
     for i, line in enumerate(lines):
         draw.text((x, y + i * line_h), line, font=f, fill=fill)
     return y + len(lines) * line_h + spacing
@@ -125,7 +131,7 @@ CARDS = [
     dict(n=10, region="GLOBAL", field="AI GOVERNANCE", art="robot",
          head="Killer-robot talks end with more talks",
          deck="Talks go to 2028; no firm commitment yet",
-         at=(-74.0, 40.7)),
+         at=None),
     dict(n=11, region="AMERICAS", field="TECHNOLOGY", art="servers",
          head="Trump threatens tax on AI centres abroad",
          deck="Overseas AI sites face \u201ca tremendous tax\u201d",
@@ -153,7 +159,7 @@ BRIEFS = [
     (29, "ASIA", "Russia warns on ISIS-K, offers mediation"),
     (30, "GLOBAL", "UN sets AI-safety summit in Barbados"),
     (31, "AMERICAS", "Senate Democrats test leadership vote"),
-    (32, "OCEANIA", "Magnitude 6.8 quake shakes Banda Sea"),
+    (32, "ASIA", "Magnitude 6.8 quake shakes Banda Sea"),
     (33, "ASIA", "Indonesia ammonia project moves ahead"),
     (34, "AMERICAS", "Trump defends calling Putin a friend"),
     (35, "ASIA", "Meta protests in three Indian cities"),
@@ -161,6 +167,19 @@ BRIEFS = [
 
 TOTAL = len(CARDS) + len(BRIEFS)
 assert (TOTAL, len(BRIEFS)) == (35, 24)
+
+# One count per region, tallied from the story coding above and used by both the
+# masthead and the map legend, so the printed numbers cannot drift from the copy.
+COUNTS = {name: 0 for name in REGIONS}
+for _card in CARDS:
+    COUNTS[_card["region"]] += 1
+for _n, _region, _text in BRIEFS:
+    COUNTS[_region] += 1
+assert sum(COUNTS.values()) == TOTAL, COUNTS
+# A region with no story must not appear in the legend at all.
+PLOTTED = [name for name in REGIONS if COUNTS[name]]
+assert not any(c["region"] == "GLOBAL" and c["at"] for c in CARDS), \
+    "global stories have no single location, so they get no map dot"
 
 
 # ----------------------------------------------------------- illustrations ---
@@ -342,7 +361,7 @@ ART = {"summit": art_summit, "plant": art_plant, "strike": art_strike, "cuffs": 
 def draw_masthead(d):
     f = font(SANS_B, 11)
     tracked(d, MARGIN, 9, "THE DAY IN WORLD NEWS", f, INK, 1.6)
-    right = f"{TOTAL} STORIES \u00b7 7 REGIONS \u00b7 ONE DAY"
+    right = f"{TOTAL} STORIES \u00b7 {len(PLOTTED)} REGIONS \u00b7 ONE DAY"
     d.text((W - MARGIN - f.getlength(right), 9), right, font=f, fill=MUTED)
     d.line((MARGIN, 30, W - MARGIN, 30), fill=INK, width=2)
 
@@ -385,17 +404,22 @@ def draw_card(d, card, x, y, w):
 
     ty = y + ih + 8
     fk = font(SANS_B, 10)
-    tracked(d, x + 12, ty, f"{card['region']} \u00b7 {card['field']}", fk, accent, 0.8)
+    tw = w - 2 * CARD_PAD
+    kicker = f"{card['region']} \u00b7 {card['field']}"
+    if tracked(d, x + CARD_PAD, ty, kicker, fk, accent, 0.8) - x > w - CARD_PAD:
+        raise ValueError(f"card {card['n']} kicker is wider than the card: {kicker!r}")
     ty += 13
     lead = card.get("lead", False)
     fh = font(SERIF_B, 18 if lead else 16)
-    ty = block(d, x + 12, ty, card["head"], fh, INK, w - 24, 21 if lead else 19, 2)
+    ty = block(d, x + CARD_PAD, ty, card["head"], fh, INK, tw, 21 if lead else 19, 2)
     fd = font(SANS, 11)
-    block(d, x + 12, ty + 1, card["deck"], fd, MUTED, w - 24, 13, 2)
+    end = block(d, x + CARD_PAD, ty - 1, card["deck"], fd, MUTED, tw, 13, 2)
+    if end > y + CARD_H - 4:
+        raise ValueError(f"card {card['n']} copy runs past the card floor: {end} > {y + CARD_H - 4}")
 
 
 MAP_X, BAND_Y = MARGIN, CARD_TOP + 3 * CARD_H + 2 * ROW_GAP + 14
-MAP_W, MAP_H = 372, 186
+MAP_W, MAP_H = 350, 186
 
 
 def project(lon, lat, box):
@@ -403,59 +427,77 @@ def project(lon, lat, box):
     return (x + (lon + 180) / 360 * w, y + (90 - lat) / 180 * h)
 
 
+# label offsets nudge the markers apart inside the crowded Europe/Middle East
+# cluster, keeping every badge on the map and clear of its neighbours
+DOT_OFFSETS = {1: (-14, 0), 2: (8, -4), 3: (6, -6), 7: (0, 18), 9: (-14, -10)}
+
+
 def draw_map(d, land):
     f = font(SANS_B, 11)
     tracked(d, MAP_X, BAND_Y, "WHERE IT HAPPENED", f, INK, 1.4)
     box = (MAP_X, BAND_Y + 18, MAP_W, MAP_H)
-    d.rectangle((box[0], box[1], box[0] + box[2], box[1] + box[3]), fill=(232, 227, 214),
+    d.rectangle((box[0], box[1], box[0] + box[2], box[1] + box[3]), fill=(236, 232, 222),
                 outline=RULE, width=1)
+    # graticule first so the coastlines stay the strongest line on the map
+    for gx in range(1, 6):
+        px = box[0] + box[2] * gx / 6
+        d.line((px, box[1], px, box[1] + box[3]), fill=(224, 219, 207), width=1)
+    for gy in range(1, 4):
+        py = box[1] + box[3] * gy / 4
+        d.line((box[0], py, box[0] + box[2], py), fill=(224, 219, 207), width=1)
     for ring in land:
         pts = [(box[0] + nx * box[2], box[1] + ny * box[3]) for nx, ny in ring]
         if len(pts) > 2:
-            d.polygon(pts, fill=(196, 190, 174), outline=(150, 144, 130))
-    for gx in range(1, 6):
-        px = box[0] + box[2] * gx / 6
-        d.line((px, box[1], px, box[1] + box[3]), fill=(221, 216, 203), width=1)
-    for gy in range(1, 4):
-        py = box[1] + box[3] * gy / 4
-        d.line((box[0], py, box[0] + box[2], py), fill=(221, 216, 203), width=1)
+            d.polygon(pts, fill=(170, 163, 143), outline=(96, 88, 72))
 
-    offsets = {1: (-16, -6), 2: (18, 12), 3: (8, -16), 4: (-2, -18), 5: (-2, 16),
-               6: (2, 18), 7: (14, -4), 9: (-16, -6), 10: (-24, -14), 11: (18, -16)}
+    marks = []
     for card in CARDS:
         if not card["at"]:
-            continue
-        tx, ty_ = project(card["at"][0], card["at"][1], box)
-        accent = REGIONS[card["region"]]
-        d.ellipse((tx - 4, ty_ - 4, tx + 4, ty_ + 4), fill=accent, outline=WHITE, width=1)
-        dx, dy = offsets.get(card["n"], (0, 0))
-        px, py = tx + dx, ty_ + dy
-        if dx or dy:
-            d.line((tx, ty_, px, py), fill=accent, width=1)
-        d.ellipse((px - 9, py - 9, px + 9, py + 9), fill=accent, outline=WHITE, width=2)
-        fn = font(SANS_B, 11)
-        label = str(card["n"])
-        tw = fn.getlength(label)
-        d.text((px - tw / 2, py - 6), label, font=fn, fill=WHITE)
+            continue  # global stories have no single location, so they are not plotted
+        core = project(card["at"][0], card["at"][1], box)
+        dx, dy = DOT_OFFSETS.get(card["n"], (0, 0))
+        marks.append((card["n"], REGIONS[card["region"]], core, (core[0] + dx, core[1] + dy)))
+    # markers must not collide with each other or swallow a neighbouring location
+    for i, (n, _, _, (lx, ly_)) in enumerate(marks):
+        if not (box[0] + MAP_DOT_R <= lx <= box[0] + box[2] - MAP_DOT_R
+                and box[1] + MAP_DOT_R <= ly_ <= box[1] + box[3] - MAP_DOT_R):
+            raise ValueError(f"map label {n} falls outside the map box at {(lx, ly_)}")
+        for m, _a, _c, (mx, my) in marks[i + 1:]:
+            if (lx - mx) ** 2 + (ly_ - my) ** 2 < (2 * MAP_DOT_R + 2) ** 2:
+                raise ValueError(f"map labels {n} and {m} collide")
+        for m, _, core, _ in marks:
+            if m == n:
+                continue
+            if (lx - core[0]) ** 2 + (ly_ - core[1]) ** 2 < (MAP_DOT_R + 7) ** 2:
+                raise ValueError(f"map label {n} crowds the location dot of {m}")
 
-    # legend: seven swatches in two columns of four
+    for n, accent, (tx, ty_), (px, py) in marks:
+        d.ellipse((tx - 3, ty_ - 3, tx + 3, ty_ + 3), fill=accent)
+        if (px, py) != (tx, ty_):
+            d.line((tx, ty_, px, py), fill=accent, width=1)
+        r = MAP_DOT_R
+        d.ellipse((px - r, py - r, px + r, py + r), fill=accent, outline=WHITE, width=2)
+        label = str(n)
+        fn = font(SANS_B, 13 if len(label) == 1 else 12)
+        left, top, right, bottom = fn.getbbox(label)
+        d.text((px - (right - left) / 2 - left, py - (bottom - top) / 2 - top), label,
+               font=fn, fill=WHITE)
+
+    # legend: one swatch per region that actually has a story, two columns of three
     ly = box[1] + box[3] + 8
     fl = font(SANS_B, 11)
-    counts = {k: 0 for k in REGIONS}
-    for card in CARDS:
-        counts[card["region"]] += 1
-    for _, region, _ in BRIEFS:
-        counts[region] += 1
-    for i, (name, colour) in enumerate(REGIONS.items()):
-        col, row = divmod(i, 4)
+    shown = [name for name in REGIONS if COUNTS[name]]
+    for i, name in enumerate(shown):
+        col, row = divmod(i, 3)
         lx = MAP_X + col * 186
         lyy = ly + row * 14
-        d.rectangle((lx, lyy + 2, lx + 10, lyy + 11), fill=colour)
-        tracked(d, lx + 16, lyy, f"{name} {counts[name]}", fl, INK, 0.6)
-    ly += 4 * 14
+        d.rectangle((lx, lyy + 2, lx + 10, lyy + 11), fill=REGIONS[name])
+        tracked(d, lx + 16, lyy, f"{name} {COUNTS[name]}", fl, INK, 0.6)
+    ly += 3 * 14
     fc = font(SANS, 11)
     block(d, MAP_X, ly + 4,
-          "Cards 1-11 are plotted; 8 is off-planet. Briefs 12-35 are not.",
+          "Cards 1-11 are plotted, except 8 (off-planet) and 10 (global). "
+          "Global stories are not plotted. Briefs 12-35 are not.",
           fc, MUTED, MAP_W, 12, 2)
 
 
@@ -477,15 +519,16 @@ def draw_briefs(d):
     freg = font(SANS, 11)
     for idx, (n, region, text) in enumerate(BRIEFS):
         col, row = divmod(idx, per_col)
-        x = BRIEF_X + col * (col_w + gutter)
+        x = BRIEF_X + col * (col_w + gutter) + BRIEF_PAD
         y = top + row * row_h
         accent = REGIONS[region]
+        avail = col_w - 2 * BRIEF_PAD
         d.text((x, y), str(n), font=fbold, fill=accent)
         nx = x + fbold.getlength(str(n)) + 7
         lead, _, rest = text.partition(" ")
         width = fbold.getlength(lead) + freg.getlength(" " + rest)
-        if nx + width > x + col_w:
-            raise ValueError(f"brief {n} does not fit one line: {text!r} ({width:.0f}px)")
+        if width > avail:
+            raise ValueError(f"brief {n} does not fit one line: {text!r} ({width:.0f}px > {avail}px)")
         d.text((nx, y), lead, font=fbold, fill=INK)
         d.text((nx + fbold.getlength(lead + " "), y), rest, font=freg, fill=INK)
 
